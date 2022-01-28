@@ -1,69 +1,80 @@
 radio.onReceivedString(function (receivedString) {
     if (receivedString == "stop") {
-        speed = 0
-        turn = 0
-    } else if (receivedString == "fullForward") {
-        speed = 100
-        turn = 0
-    } else {
-        turn = 0
+        globalSpeed = 0
+        globalTurn = 0
+    } else if (receivedString == "XfullForward") {
+        globalSpeed = 100
+        globalTurn = 0
     }
 })
+// Mottar enten «throttle» 10 eller -10
+// Eller
+// «turn» og fjernkontrollens sideveis horisontale vinkel/tilt.
 radio.onReceivedValue(function (name, value) {
     if (name == "throttle") {
-        speed += value
-        if (speed > 99) {
-            speed = 100
+        globalSpeed += value
+        if (globalSpeed > 99) {
+            globalSpeed = 100
         }
-        if (speed < -99) {
-            speed = -100
+        if (globalSpeed < -99) {
+            globalSpeed = -100
         }
     } else if (name == "turn") {
-        turn = value
+        globalTurn = value
     }
 })
+let rightSpeed = 0
+let leftSpeed = 0
+let reverse = 0
 let speed = 0
 let turn = 0
+let globalSpeed = 0
+let globalTurn = 0
 radio.setGroup(99)
-bitbot.bbEnableBluetooth(BBBluetooth.btEnable)
 bitbot.select_model(BBModel.XL)
-turn = 0
-speed = 0
-let leftSpeed = 1
-let rightSpeed = 1
-let turnTweak = 2
-basic.showNumber(5)
+globalTurn = 0
+globalSpeed = 0
+basic.showNumber(4)
 loops.everyInterval(20, function () {
-    if (speed != 0) {
+    // Bruke lokale variabler
+    turn = globalTurn
+    speed = globalSpeed
+    if (speed < 0) {
+        speed = 0 - speed
+        reverse = 1
+    } else if (speed == 0) {
         if (turn < -10) {
-            if (leftSpeed < 0) {
-                leftSpeed = speed + 0
-            } else {
-                leftSpeed = speed + turn
-                rightSpeed = speed
-            }
+            bitbot.move(BBMotor.Left, BBDirection.Reverse, (0 - turn) / 2)
+            bitbot.move(BBMotor.Right, BBDirection.Forward, (0 - turn) / 2)
         } else if (turn > 10) {
-            if (rightSpeed < 0) {
-                rightSpeed = speed - turn
-            } else {
-                leftSpeed = speed
-                rightSpeed = speed - turn
-            }
+            bitbot.move(BBMotor.Left, BBDirection.Forward, turn / 2)
+            bitbot.move(BBMotor.Right, BBDirection.Reverse, turn / 2)
         } else {
-            leftSpeed = speed
-            rightSpeed = speed
-        }
-        if (leftSpeed < 0) {
-            bitbot.move(BBMotor.Left, BBDirection.Reverse, 0 - leftSpeed)
-        } else {
-            bitbot.move(BBMotor.Left, BBDirection.Forward, leftSpeed)
-        }
-        if (rightSpeed < 0) {
-            bitbot.move(BBMotor.Right, BBDirection.Reverse, 0 - rightSpeed)
-        } else {
-            bitbot.move(BBMotor.Right, BBDirection.Forward, rightSpeed)
+            bitbot.stop(BBStopMode.Coast)
         }
     } else {
-        bitbot.stop(BBStopMode.Coast)
+        reverse = 0
     }
+    leftSpeed = speed
+    rightSpeed = speed
+    // Left turn
+    if (turn < -5) {
+        // Make turn a positive value
+        turn = 0 - turn
+        // Set leftSpeed to speed - turn percent of speed
+        leftSpeed = speed - turn / 100 * speed
+    } else if (turn > 5) {
+        // Set leftSpeed to set rightSpeed to speed - turn percent of speed
+        rightSpeed = speed - turn / 100 * speed
+    }
+    // forward
+    if (reverse) {
+        bitbot.move(BBMotor.Left, BBDirection.Reverse, leftSpeed)
+        bitbot.move(BBMotor.Right, BBDirection.Reverse, rightSpeed)
+    } else if (speed != 0) {
+        bitbot.move(BBMotor.Left, BBDirection.Forward, leftSpeed)
+        bitbot.move(BBMotor.Right, BBDirection.Forward, rightSpeed)
+    }
+    reverse = 0
+    speed = 0
 })
